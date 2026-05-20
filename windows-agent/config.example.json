@@ -1,0 +1,29 @@
+{
+  "bind_host": "127.0.0.1",
+  "port": 8765,
+  "artifact_dir": "artifacts",
+  "log_dir": "logs",
+  "auth_token": null,
+  "default_window_patterns": {
+    "kapa_hub_plus": ".*(KAPA\\s*HUB|KAPA-HUB).*",
+    "kais": ".*(부동산통합업무시스템|KAIS).*"
+  },
+  "recipes": {
+    "example.notepad_copy_all": [
+      {
+        "action": "hotkey",
+        "keys": "^a"
+      },
+      {
+        "action": "hotkey",
+        "keys": "^c"
+      },
+      {
+        "action": "read_clipboard",
+        "save_as": "clipboard"
+      }
+    ],
+    "kapa_hub_plus.search_address": []
+  }
+}
+

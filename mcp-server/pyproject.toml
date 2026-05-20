@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kapa-mcp-server"
+version = "0.1.0"
+description = "MCP bridge for the Tailscale-private KAPA Windows Agent"
+requires-python = ">=3.11"
+dependencies = [
+  "httpx>=0.27",
+  "mcp>=1.2",
+  "pydantic>=2.7",
+]
+
+[project.scripts]
+kapa-mcp = "kapa_mcp.server:run"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["kapa_mcp*"]
+
