@@ -129,3 +129,18 @@ Windows 환경에서 해야 할 작업:
 - recipe 실행 job polling 개선
 - artifact 다운로드/요약 도구 보강
 - 실패 로그와 재시도 정책 추가
+
+## 선행조사로 미리 할 수 있는 일
+
+Windows 실물 없이도 의미 있는 선행조사는 가능하다.
+
+- 공개 문서/교육 페이지에서 프로그램명, 업무 흐름, 기능명을 수집
+- App Store / Google Play 설명과 버전 기록에서 UI 용어를 수집
+- 공개 감정평가서에서 KAPA HUB PLUS/KAIS가 산출하는 테이블 형태를 확인
+- 영상 프레임과 공개 자료를 매칭해서 UIA 검색 키워드를 만들기
+- Windows 현장 검증 체크리스트를 좁히기
+
+정리 문서:
+
+- `docs/target-research-dossier.md`
+- `docs/public-image-inventory.md`

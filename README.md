@@ -74,6 +74,10 @@ For VMware-based Windows development on this Mac, see
 Korean project summary and next-step plan:
 [docs/project-brief-ko.md](docs/project-brief-ko.md).
 
+Public target research collected before Windows field testing:
+[docs/target-research-dossier.md](docs/target-research-dossier.md) and
+[docs/public-image-inventory.md](docs/public-image-inventory.md).
+
 ## Why Not Screenshot First?
 
 The videos suggest that normal capture/remote-control tools may be blacked out.
