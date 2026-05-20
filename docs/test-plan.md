@@ -7,7 +7,7 @@
 Run on macOS or Windows:
 
 ```bash
-python3 -m compileall windows-agent mcp-server tools
+python3.11 -m compileall windows-agent mcp-server tools
 ```
 
 Expected:
@@ -96,7 +96,7 @@ Run MCP server with:
 ```bash
 export KAPA_AGENT_BASE_URL="http://100.x.y.z:8765"
 export KAPA_AGENT_TOKEN="change-this"
-python -m kapa_mcp.server
+python3.11 -m kapa_mcp.server
 ```
 
 Expected:
@@ -159,4 +159,3 @@ Expected:
 - Files not found: export folder/pattern wrong.
 - Screenshot black: expected in protected environments; use non-screen paths.
 - MCP fails but Agent works: controller env vars or token mismatch.
-

@@ -45,7 +45,7 @@ Expected:
 From the controller machine:
 
 ```bash
-python3 tools/calibrate_agent.py \
+python3.11 tools/calibrate_agent.py \
   --base-url http://100.x.y.z:8765 \
   --token change-this \
   --program kapa_hub_plus
@@ -107,4 +107,3 @@ After confirming selectors, edit `C:\KapaAgent\config.local.json`:
 ```
 
 Restart the agent after changing config.
-

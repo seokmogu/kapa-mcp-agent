@@ -175,6 +175,10 @@ py -3.11 -m venv .venv
 .\.venv\Scripts\python.exe -m kapa_agent.main
 ```
 
+On macOS/Linux controller environments, use `python3.11` explicitly. Some
+systems still map `python3` to Python 3.9, while this project requires Python
+3.11 or newer.
+
 Portable run:
 
 ```powershell
@@ -251,4 +255,3 @@ MCP Python server
 ```
 
 This is likely the best long-term production shape if target validation succeeds.
-

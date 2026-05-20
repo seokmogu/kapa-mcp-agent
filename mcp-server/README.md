@@ -13,7 +13,7 @@ export KAPA_AGENT_TOKEN="optional-shared-token"
 ## Local Run
 
 ```bash
-python3 -m venv .venv
+python3.11 -m venv .venv
 . .venv/bin/activate
 pip install -e .
 python -m kapa_mcp.server
@@ -37,4 +37,3 @@ python -m kapa_mcp.server
 High-level tools such as `search_address` are intentionally recipe-backed. Add
 confirmed Windows steps to the agent's `config.local.json` after field
 calibration.
-

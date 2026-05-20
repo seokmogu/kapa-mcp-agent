@@ -114,7 +114,7 @@ MCP Server:
 
 ```bash
 cd mcp-server
-python3 -m venv .venv
+python3.11 -m venv .venv
 . .venv/bin/activate
 pip install -e .
 export KAPA_AGENT_BASE_URL="http://100.x.y.z:8765"
