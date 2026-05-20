@@ -78,6 +78,13 @@ Public target research collected before Windows field testing:
 [docs/target-research-dossier.md](docs/target-research-dossier.md) and
 [docs/public-image-inventory.md](docs/public-image-inventory.md).
 
+Planning and engineering docs:
+[docs/prd.md](docs/prd.md),
+[docs/tdd.md](docs/tdd.md),
+[docs/spec.md](docs/spec.md),
+[docs/test-plan.md](docs/test-plan.md), and
+[docs/tooling-and-skills-research.md](docs/tooling-and-skills-research.md).
+
 ## Why Not Screenshot First?
 
 The videos suggest that normal capture/remote-control tools may be blacked out.
