@@ -28,6 +28,20 @@ For each program, record:
 - Result table control type
 - Whether table rows expose text through UIA
 
+Before manual inspection, run the controller-side field reconnaissance tool:
+
+```powershell
+python tools\field_recon.py `
+  --base-url "http://127.0.0.1:8765" `
+  --program kapa_hub_plus `
+  --download-artifacts
+```
+
+Save the generated `field-recon-report.json`, `field-recon-summary.md`, and
+`uia-dump-*.json` files with the test notes. They are the baseline evidence for
+which windows and controls are visible without relying on TeamViewer-style
+screen sharing.
+
 ## 3. Test Clipboard Extraction
 
 For each result table:
@@ -67,4 +81,3 @@ Automation is viable when all of these are true:
 
 If all result paths fail, use an IP-KVM for human control and keep this agent for
 file/clipboard collection only.
-

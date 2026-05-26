@@ -18,8 +18,15 @@ dependencies = [
   "mss>=9.0",
 ]
 
+[project.optional-dependencies]
+probe = [
+  "Pillow>=10.0; platform_system == 'Windows'",
+  "pywin32>=306; platform_system == 'Windows'",
+]
+
 [project.scripts]
 kapa-agent = "kapa_agent.main:run"
+kapa-probe = "kapa_agent.capability_probe:main"
 
 [tool.setuptools.packages.find]
 where = ["."]

@@ -1,0 +1,26 @@
+{
+  "window_pattern": "(KAPA|HUB|KAIS)",
+  "max_depth": 6,
+  "max_nodes": 1000,
+  "recent_minutes": 240,
+  "include_clipboard_text": false,
+  "include_screenshot_files": false,
+  "push_url": "http://100.a.b.c:8787/runs",
+  "push_token": "change-this",
+  "push_format": "raw-zip",
+  "terms": [
+    "KAPA",
+    "HUB",
+    "KAIS",
+    "Excel",
+    "XLS",
+    "CSV",
+    "PDF",
+    "print",
+    "export",
+    "save",
+    "copy",
+    "search",
+    "address"
+  ]
+}

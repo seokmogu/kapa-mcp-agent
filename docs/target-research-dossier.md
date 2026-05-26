@@ -174,6 +174,15 @@ Repeat the same for KAIS after identifying the exact window title and workflow.
 - KAPA webzine mentioning ACAP and KAPA HUB PLUS demonstration:
   https://www.kapanet.or.kr/kapawebzine/data/156/sub/01.html
 
+## Access Notes
+
+Public search found training and membership workflow references, but not a
+public Windows installer download. KAPA education pages list KAPA HUB PLUS user
+training and program/manual courses. A KAPA network application PDF states that
+a VPN device is required for KAPA HUB program use and that the process is
+available through a member-only work-support area. Treat acquisition as an
+authorized-member or target-PC-only step, not a public download step.
+
 ## Caveats
 
 - Public pages do not reveal real Windows UI Automation IDs.
@@ -181,4 +190,3 @@ Repeat the same for KAIS after identifying the exact window title and workflow.
   Windows interface.
 - Public appraisal reports show output data shapes, not internal APIs.
 - Any final recipe must be validated on the authorized Windows desktop session.
-

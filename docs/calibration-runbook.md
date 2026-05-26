@@ -54,6 +54,22 @@ python3.11 tools/calibrate_agent.py \
 The script writes a JSON report with health, diagnostics, window list, program
 probe, recent export files, screenshot metadata, and clipboard status.
 
+For a deeper non-invasive reconnaissance pass, run:
+
+```bash
+python3.11 tools/field_recon.py \
+  --base-url http://100.x.y.z:8765 \
+  --token change-this \
+  --program kapa_hub_plus \
+  --download-artifacts
+```
+
+This writes a JSON report, a markdown summary, and per-window UIA dump files.
+It does not click, type, copy, or submit anything. Use it before building a
+recipe to learn which top-level windows, UI Automation controls, screenshots,
+clipboard state, and export-file paths are visible from the logged-in desktop
+session.
+
 ## 4. Decide The Automation Path
 
 Use this decision table:

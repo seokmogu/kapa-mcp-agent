@@ -64,9 +64,19 @@ testing, or to the Windows machine's Tailscale IP for private remote access.
 Use [docs/calibration-runbook.md](docs/calibration-runbook.md) for the first
 field test.
 
-For a target Windows PC with no developer tooling, build a single-file EXE on a
-separate Windows sandbox and copy the portable ZIP. See
+For a target Windows PC with no developer tooling, build a single double-click
+probe EXE on a separate Windows sandbox and send only that file. See
 [docs/exe-build-and-install.md](docs/exe-build-and-install.md).
+
+Before implementing a workflow recipe, run the local diagnostic probe on the
+target Windows PC to learn which channels are available. See
+[docs/capability-probe.md](docs/capability-probe.md).
+For the repeated diagnose/analyze/update cycle, see
+[docs/feedback-loop.md](docs/feedback-loop.md).
+For the channel-by-channel decision matrix, see
+[docs/implementation-options-matrix.md](docs/implementation-options-matrix.md).
+For Google Drive style upload, see
+[docs/google-drive-ingest.md](docs/google-drive-ingest.md).
 
 For VMware-based Windows development on this Mac, see
 [docs/vmware-dev-plan.md](docs/vmware-dev-plan.md).

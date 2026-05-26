@@ -17,4 +17,16 @@ captures/
 *.log
 .env
 config.local.json
-
+probe.config.json
+probe.config.baked.json
+*.spec
+*-probe-*.zip
+kapa-capability-probe-*/
+kapa-probe-last-run.txt
+runs*/
+windows-agent/.build-venv/
+windows-agent/.build-probe-config/
+windows-agent/kapa-capability-probe-*/
+windows-agent/kapa-capability-probe-*.zip
+windows-agent/kapa-probe-last-run.txt
+windows-agent/*.spec
