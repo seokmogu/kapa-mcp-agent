@@ -23,6 +23,42 @@
         "save_as": "clipboard"
       }
     ],
+    "example.notepad_echo": [
+      {
+        "action": "type_text",
+        "text": "{{message}}",
+        "paste": true,
+        "submit": false,
+        "selector": {
+          "title_re": ".*(메모장|Notepad).*",
+          "backend": "uia"
+        }
+      },
+      {
+        "action": "wait",
+        "seconds": 0.3
+      },
+      {
+        "action": "hotkey",
+        "keys": "^a",
+        "selector": {
+          "title_re": ".*(메모장|Notepad).*",
+          "backend": "uia"
+        }
+      },
+      {
+        "action": "hotkey",
+        "keys": "^c",
+        "selector": {
+          "title_re": ".*(메모장|Notepad).*",
+          "backend": "uia"
+        }
+      },
+      {
+        "action": "read_clipboard",
+        "save_as": "clipboard"
+      }
+    ],
     "kapa_hub_plus.search_address": []
   }
 }

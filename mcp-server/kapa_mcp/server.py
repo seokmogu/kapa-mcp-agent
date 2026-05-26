@@ -26,6 +26,12 @@ async def agent_diagnostics() -> dict[str, Any]:
 
 
 @mcp.tool()
+async def list_recipes() -> dict[str, Any]:
+    """List recipe names configured on the Windows Agent and their step actions."""
+    return await client().get("/recipes")
+
+
+@mcp.tool()
 async def list_windows(backend: str = "uia") -> list[dict[str, Any]]:
     """List top-level Windows desktop windows visible to the agent session."""
     return await client().get("/windows", params={"backend": backend})

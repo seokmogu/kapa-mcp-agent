@@ -153,10 +153,29 @@ class WindowsAutomation:
         return self.find_window(WindowSelector(title_re=title_pattern, backend=backend))
 
     def run_recipe(self, steps: list[dict[str, Any]], context: dict[str, Any]) -> dict[str, Any]:
-        result: dict[str, Any] = {"steps": [], "values": {}}
+        """Execute a recipe step by step.
+
+        Each step entry in ``result["steps"]`` contains the resolved (post-
+        interpolation) step, ok/error, and start/duration in milliseconds. This
+        trace is the primary calibration tool when a recipe fails against a real
+        target — keep it small but truthful.
+        """
+        result: dict[str, Any] = {
+            "ok": True,
+            "steps": [],
+            "values": {},
+            "started_at": time.time(),
+        }
         for index, raw_step in enumerate(steps):
             step = self._interpolate(raw_step, context)
             action = step.get("action")
+            step_started = time.time()
+            trace: dict[str, Any] = {
+                "index": index,
+                "action": action,
+                "step": self._redact_step(step),
+                "started_at": step_started,
+            }
             try:
                 if action == "wait":
                     time.sleep(float(step.get("seconds", 1)))
@@ -178,18 +197,46 @@ class WindowsAutomation:
                     )
                 elif action == "read_clipboard":
                     key = str(step.get("save_as", "clipboard"))
-                    result["values"][key] = self.read_clipboard()
+                    value = self.read_clipboard()
+                    result["values"][key] = value
+                    trace["clipboard_length"] = len(value) if value else 0
                 elif action == "write_clipboard":
                     self.write_clipboard(str(step.get("text", "")))
                 else:
                     raise ValueError(f"Unknown recipe action: {action}")
-                result["steps"].append({"index": index, "action": action, "ok": True})
+                trace["ok"] = True
+                trace["duration_ms"] = round((time.time() - step_started) * 1000, 1)
+                result["steps"].append(trace)
             except Exception as exc:  # noqa: BLE001 - recipe runner must report exact failed step
-                result["steps"].append(
-                    {"index": index, "action": action, "ok": False, "error": str(exc)}
+                trace["ok"] = False
+                trace["error"] = str(exc)
+                trace["error_type"] = type(exc).__name__
+                trace["duration_ms"] = round((time.time() - step_started) * 1000, 1)
+                result["steps"].append(trace)
+                result["ok"] = False
+                result["failed_at"] = index
+                result["error"] = f"{type(exc).__name__}: {exc}"
+                result["finished_at"] = time.time()
+                result["total_duration_ms"] = round(
+                    (result["finished_at"] - result["started_at"]) * 1000, 1
                 )
-                raise
+                return result
+        result["finished_at"] = time.time()
+        result["total_duration_ms"] = round(
+            (result["finished_at"] - result["started_at"]) * 1000, 1
+        )
         return result
+
+    @staticmethod
+    def _redact_step(step: dict[str, Any]) -> dict[str, Any]:
+        """Return a trace-safe view of a step: keep structure, trim long text."""
+        safe: dict[str, Any] = {}
+        for key, value in step.items():
+            if isinstance(value, str) and len(value) > 200:
+                safe[key] = value[:200] + "…<truncated>"
+            else:
+                safe[key] = value
+        return safe
 
     def _selector_from_step(self, step: dict[str, Any]) -> WindowSelector | None:
         selector_data = step.get("selector")

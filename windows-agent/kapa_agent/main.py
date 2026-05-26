@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+import time
 import uuid
 from pathlib import Path
 from typing import Any
@@ -55,6 +57,24 @@ def health() -> dict[str, Any]:
         "port": config.port,
         "artifact_dir": str(config.artifact_dir),
         "recipes": sorted(config.recipes.keys()),
+    }
+
+
+@app.get("/recipes", dependencies=[Auth])
+def list_recipes() -> dict[str, Any]:
+    """List configured recipe names and a 1-line summary of each.
+
+    The summary is a list of action names so MCP clients can discover what a
+    recipe will do without re-reading the full config.
+    """
+    return {
+        "recipes": {
+            name: {
+                "step_count": len(steps),
+                "actions": [str(step.get("action")) for step in steps],
+            }
+            for name, steps in config.recipes.items()
+        }
     }
 
 
@@ -216,21 +236,34 @@ def get_job(job_id: str) -> JobStatus:
 def run_job(job_id: str, request: JobRequest) -> None:
     jobs[job_id].status = "running"
     try:
-        result = execute_job(request)
-        jobs[job_id].status = "succeeded"
+        result = execute_job(request, job_id=job_id)
         jobs[job_id].result = result
+        if isinstance(result, dict) and result.get("ok") is False:
+            jobs[job_id].status = "failed"
+            jobs[job_id].error = str(
+                result.get("error") or result.get("reason") or "recipe_failed"
+            )
+        else:
+            jobs[job_id].status = "succeeded"
     except Exception as exc:  # noqa: BLE001 - background job should persist failure reason
         jobs[job_id].status = "failed"
         jobs[job_id].error = str(exc)
 
 
-def execute_job(request: JobRequest) -> dict[str, Any]:
+def execute_job(request: JobRequest, job_id: str | None = None) -> dict[str, Any]:
     if request.task == "run_recipe":
         recipe_name = str(request.params["recipe"])
         steps = config.recipes.get(recipe_name)
         if not steps:
-            raise ValueError(f"Recipe not configured: {recipe_name}")
-        return automation.run_recipe(steps, request.params)
+            return {
+                "ok": False,
+                "reason": "recipe_not_configured",
+                "recipe": recipe_name,
+            }
+        result = automation.run_recipe(steps, request.params)
+        _persist_recipe_trace(result, recipe_name, request.params, job_id)
+        _maybe_save_clipboard_artifact(result, recipe_name, request.params)
+        return result
 
     if request.task == "search_address":
         program = request.program or "kapa_hub_plus"
@@ -241,21 +274,73 @@ def execute_job(request: JobRequest) -> dict[str, Any]:
                 "ok": False,
                 "reason": "recipe_not_configured",
                 "recipe": recipe_name,
-                "next_step": "Capture UI selectors on Windows and add this recipe to config.local.json.",
+                "next_step": (
+                    "Capture UI selectors on Windows and add this recipe to "
+                    "config.local.json."
+                ),
             }
         result = automation.run_recipe(steps, request.params)
-        if "clipboard" in result.get("values", {}):
-            artifact = artifacts.save_text(
-                f"{recipe_name}_{job_safe_name(request.params.get('address', 'result'))}.txt",
-                result["values"]["clipboard"],
-            )
-            result["artifact"] = artifact.model_dump()
+        _persist_recipe_trace(result, recipe_name, request.params, job_id)
+        _maybe_save_clipboard_artifact(result, recipe_name, request.params)
         return result
 
     if request.task == "dump_windows":
         return {"windows": [item.model_dump() for item in automation.list_windows()]}
 
     raise ValueError(f"Unknown task: {request.task}")
+
+
+def _persist_recipe_trace(
+    result: dict[str, Any],
+    recipe_name: str,
+    params: dict[str, Any],
+    job_id: str | None,
+) -> None:
+    """Save the recipe trace as a JSON artifact and link it back in result.
+
+    Trace artifacts are the primary debug surface for KAPA/KAIS calibration —
+    they record per-step timing, the (interpolated) step body, and the exact
+    error type/message when a step fails. Saved on both success and failure.
+    """
+    try:
+        trace_doc = {
+            "recipe": recipe_name,
+            "params": params,
+            "job_id": job_id,
+            "saved_at": time.time(),
+            "result": {
+                "ok": result.get("ok"),
+                "error": result.get("error"),
+                "failed_at": result.get("failed_at"),
+                "started_at": result.get("started_at"),
+                "finished_at": result.get("finished_at"),
+                "total_duration_ms": result.get("total_duration_ms"),
+                "steps": result.get("steps", []),
+                # values are intentionally summarized only; full text artifact
+                # is saved separately by _maybe_save_clipboard_artifact.
+                "value_keys": list((result.get("values") or {}).keys()),
+            },
+        }
+        artifact = artifacts.save_text(
+            f"trace_{recipe_name}_{job_safe_name(params.get('address', job_id or 'run'))}.json",
+            json.dumps(trace_doc, ensure_ascii=False, indent=2),
+        )
+        result["trace_artifact"] = artifact.model_dump()
+    except Exception as exc:  # noqa: BLE001 - trace persistence must never break a job
+        result["trace_error"] = repr(exc)
+
+
+def _maybe_save_clipboard_artifact(
+    result: dict[str, Any], recipe_name: str, params: dict[str, Any]
+) -> None:
+    clipboard = (result.get("values") or {}).get("clipboard")
+    if not clipboard:
+        return
+    artifact = artifacts.save_text(
+        f"{recipe_name}_{job_safe_name(params.get('address', 'result'))}.txt",
+        clipboard,
+    )
+    result["artifact"] = artifact.model_dump()
 
 
 def job_safe_name(value: Any) -> str:
