@@ -7,6 +7,7 @@ import ctypes
 import platform
 import time
 import tkinter as tk
+from ctypes import wintypes
 from pathlib import Path
 from tkinter import ttk
 
@@ -14,6 +15,7 @@ from tkinter import ttk
 WDA_NONE = 0x0
 WDA_MONITOR = 0x1
 WDA_EXCLUDEFROMCAPTURE = 0x11
+GA_ROOT = 2
 
 
 ROWS = [
@@ -148,17 +150,27 @@ class DemoApp:
             return
         hwnd = int(self.root.winfo_id())
         try:
+            hwnd = int(ctypes.windll.user32.GetAncestor(hwnd, GA_ROOT)) or hwnd
             ok = ctypes.windll.user32.SetWindowDisplayAffinity(hwnd, WDA_EXCLUDEFROMCAPTURE)
             if ok:
-                self.capture_status.set("capture protection: WDA_EXCLUDEFROMCAPTURE")
+                affinity = self.current_affinity(hwnd)
+                self.capture_status.set(f"capture protection: WDA_EXCLUDEFROMCAPTURE ({affinity})")
             else:
                 fallback_ok = ctypes.windll.user32.SetWindowDisplayAffinity(hwnd, WDA_MONITOR)
                 if fallback_ok:
-                    self.capture_status.set("capture protection: WDA_MONITOR fallback")
+                    affinity = self.current_affinity(hwnd)
+                    self.capture_status.set(f"capture protection: WDA_MONITOR fallback ({affinity})")
                 else:
                     self.capture_status.set("capture protection: failed")
         except Exception as exc:  # noqa: BLE001 - visible demo status is enough
             self.capture_status.set(f"capture protection: error {exc}")
+
+    def current_affinity(self, hwnd: int) -> str:
+        value = wintypes.DWORD()
+        ok = ctypes.windll.user32.GetWindowDisplayAffinity(hwnd, ctypes.byref(value))
+        if not ok:
+            return "unknown"
+        return hex(value.value)
 
     def run(self) -> None:
         self.root.mainloop()
