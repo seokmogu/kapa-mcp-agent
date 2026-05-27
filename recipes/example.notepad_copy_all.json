@@ -1,0 +1,10 @@
+{
+  "name": "example.notepad_copy_all",
+  "description": "Select all and copy from the focused window, then read the clipboard. Useful for grabbing the full contents of an already-open document/grid.",
+  "params": [],
+  "steps": [
+    { "action": "hotkey", "keys": "^a" },
+    { "action": "hotkey", "keys": "^c" },
+    { "action": "read_clipboard", "save_as": "clipboard" }
+  ]
+}

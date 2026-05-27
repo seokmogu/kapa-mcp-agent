@@ -121,6 +121,38 @@ class WindowsAutomation:
 
         return pyperclip.paste()
 
+    def wait_until_clipboard_changes(self, timeout: float = 8.0, poll: float = 0.3) -> bool:
+        """Block until clipboard text differs from its current value or timeout.
+
+        Returns True if a change was observed, False on timeout. Useful after a
+        search/copy action whose result lands in the clipboard asynchronously.
+        """
+        baseline = self.read_clipboard()
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            time.sleep(poll)
+            if self.read_clipboard() != baseline:
+                return True
+        return False
+
+    def wait_until_window(
+        self, selector: WindowSelector | None, timeout: float = 10.0, poll: float = 0.4
+    ) -> bool:
+        """Block until a window matching the selector exists or timeout."""
+        if selector is None:
+            return False
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            try:
+                win = self.find_window(selector)
+                # find_window may return a lazy wrapper; force a real lookup
+                if win is not None and win.exists(timeout=0.2):
+                    return True
+            except Exception:  # noqa: BLE001 - not found yet, keep polling
+                pass
+            time.sleep(poll)
+        return False
+
     def write_clipboard(self, text: str) -> None:
         import pyperclip
 
@@ -202,6 +234,27 @@ class WindowsAutomation:
                     trace["clipboard_length"] = len(value) if value else 0
                 elif action == "write_clipboard":
                     self.write_clipboard(str(step.get("text", "")))
+                elif action == "wait_until_clipboard_changes":
+                    changed = self.wait_until_clipboard_changes(
+                        timeout=float(step.get("timeout", 8)),
+                        poll=float(step.get("poll", 0.3)),
+                    )
+                    trace["clipboard_changed"] = changed
+                    if not changed and step.get("require", False):
+                        raise TimeoutError(
+                            f"clipboard did not change within {step.get('timeout', 8)}s"
+                        )
+                elif action == "wait_until_window":
+                    appeared = self.wait_until_window(
+                        self._selector_from_step(step),
+                        timeout=float(step.get("timeout", 10)),
+                        poll=float(step.get("poll", 0.4)),
+                    )
+                    trace["window_found"] = appeared
+                    if not appeared and step.get("require", True):
+                        raise TimeoutError(
+                            f"window did not appear within {step.get('timeout', 10)}s"
+                        )
                 else:
                     raise ValueError(f"Unknown recipe action: {action}")
                 trace["ok"] = True

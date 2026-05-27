@@ -40,9 +40,22 @@ class AgentClient:
         response.raise_for_status()
         return response.content
 
-    async def post(self, path: str, json: dict[str, Any]) -> Any:
+    async def post(
+        self, path: str, json: dict[str, Any], params: dict[str, Any] | None = None
+    ) -> Any:
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             response = await client.post(
+                self._url(path),
+                json=json,
+                params=params,
+                headers=self._headers(),
+            )
+        response.raise_for_status()
+        return response.json()
+
+    async def put(self, path: str, json: dict[str, Any]) -> Any:
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.put(
                 self._url(path),
                 json=json,
                 headers=self._headers(),

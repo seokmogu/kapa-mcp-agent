@@ -11,8 +11,18 @@ import uvicorn
 from fastapi import BackgroundTasks, Depends, FastAPI, Header, HTTPException
 from fastapi.responses import FileResponse
 
-from .config import AgentConfig
+from pydantic import BaseModel
+
+from .config import AGENT_VERSION, AgentConfig
 from .file_collector import collect_recent_files, info_for_path, recent_files
+from .updater import (
+    GitHubUpdater,
+    UpdateError,
+    backup_recipes_dir,
+    latest_backup,
+    validate_recipes,
+    write_recipe_files,
+)
 from .models import (
     ArtifactInfo,
     ClipboardWriteRequest,
@@ -53,10 +63,29 @@ def health() -> dict[str, Any]:
     return {
         "ok": True,
         "platform": "windows" if is_windows() else "unsupported",
+        "version": AGENT_VERSION,
+        "recipes_hash": config.recipes_hash(),
         "bind_host": config.bind_host,
         "port": config.port,
         "artifact_dir": str(config.artifact_dir),
         "recipes": sorted(config.recipes.keys()),
+    }
+
+
+@app.get("/version", dependencies=[Auth])
+def version() -> dict[str, Any]:
+    """Report what code + recipes are currently running, for update decisions."""
+    return {
+        "version": AGENT_VERSION,
+        "recipes_hash": config.recipes_hash(),
+        "recipes": sorted(config.recipes.keys()),
+        "recipes_dir": str(config.recipes_dir),
+        "github": {
+            "repo": config.github.repo,
+            "ref": config.github.ref,
+            "token_configured": bool(config.github.token),
+            "asset_name": config.github.asset_name,
+        },
     }
 
 
@@ -76,6 +105,139 @@ def list_recipes() -> dict[str, Any]:
             for name, steps in config.recipes.items()
         }
     }
+
+
+class RecipesUpdateRequest(BaseModel):
+    recipes: dict[str, list[dict[str, Any]]]
+
+
+@app.put("/config/recipes", dependencies=[Auth])
+def put_recipes(request: RecipesUpdateRequest) -> dict[str, Any]:
+    """Live-push recipes without restart.
+
+    Validates the payload, backs up the current recipe dir, writes each recipe
+    to recipes_dir/<name>.json, and hot-reloads. Rejects invalid payloads so a
+    bad recipe can never brick the agent.
+    """
+    problems = validate_recipes(request.recipes)
+    if problems:
+        raise HTTPException(status_code=422, detail={"validation_errors": problems})
+    backup = backup_recipes_dir(config.recipes_dir)
+    written = write_recipe_files(config.recipes_dir, request.recipes)
+    config.reload_recipes()
+    return {
+        "ok": True,
+        "written": written,
+        "recipes_hash": config.recipes_hash(),
+        "backup": str(backup) if backup else None,
+        "recipes": sorted(config.recipes.keys()),
+    }
+
+
+@app.post("/admin/reload", dependencies=[Auth])
+def admin_reload() -> dict[str, Any]:
+    """Re-read recipes from disk into memory (no network)."""
+    config.reload_recipes()
+    return {"ok": True, "recipes_hash": config.recipes_hash(), "recipes": sorted(config.recipes.keys())}
+
+
+@app.post("/admin/update-recipes", dependencies=[Auth])
+def admin_update_recipes(ref: str | None = None) -> dict[str, Any]:
+    """Pull recipes/*.json from GitHub at the given ref, validate, hot-reload."""
+    updater = GitHubUpdater(config.github)
+    try:
+        fetched = updater.fetch_recipes(ref)
+    except UpdateError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    problems = validate_recipes(fetched)
+    if problems:
+        raise HTTPException(status_code=422, detail={"validation_errors": problems})
+    backup = backup_recipes_dir(config.recipes_dir)
+    written = write_recipe_files(config.recipes_dir, fetched)
+    config.reload_recipes()
+    return {
+        "ok": True,
+        "source": f"github:{config.github.repo}@{ref or config.github.ref}",
+        "written": written,
+        "recipes_hash": config.recipes_hash(),
+        "backup": str(backup) if backup else None,
+    }
+
+
+@app.post("/admin/rollback", dependencies=[Auth])
+def admin_rollback() -> dict[str, Any]:
+    """Restore recipes from the most recent backup snapshot."""
+    backup = latest_backup(config.recipes_dir)
+    if backup is None:
+        raise HTTPException(status_code=404, detail="No backup snapshot available")
+    # Make recipes_dir/*.json exactly match the snapshot: remove current files
+    # first so recipes added after the snapshot are also rolled back.
+    removed = []
+    for path in config.recipes_dir.glob("*.json"):
+        path.unlink()
+        removed.append(path.name)
+    restored = []
+    for path in backup.glob("*.json"):
+        target = config.recipes_dir / path.name
+        target.write_bytes(path.read_bytes())
+        restored.append(path.name)
+    config.reload_recipes()
+    return {
+        "ok": True,
+        "restored_from": str(backup),
+        "removed": removed,
+        "restored": restored,
+        "recipes_hash": config.recipes_hash(),
+    }
+
+
+@app.post("/admin/update-agent", dependencies=[Auth])
+def admin_update_agent() -> dict[str, Any]:
+    """Download the latest agent EXE from GitHub Releases and stage it.
+
+    The running EXE cannot overwrite itself on Windows, so the new binary is
+    written next to it as ``<asset>.new`` and a ``.update-pending`` marker is
+    dropped. The watchdog performs the swap on the next restart.
+    """
+    updater = GitHubUpdater(config.github)
+    staged = config.artifact_dir.parent / (config.github.asset_name + ".new")
+    try:
+        meta = updater.download_asset(staged, config.github.asset_name)
+    except UpdateError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    if not meta.get("verified"):
+        try:
+            staged.unlink()
+        except OSError:
+            pass
+        raise HTTPException(
+            status_code=409,
+            detail={"reason": "checksum_mismatch", "meta": meta},
+        )
+    marker = config.artifact_dir.parent / ".update-pending"
+    marker.write_text(json.dumps(meta, ensure_ascii=False), encoding="utf-8")
+    return {
+        "ok": True,
+        "staged": meta,
+        "next_step": "POST /admin/restart (watchdog will swap the binary)",
+    }
+
+
+@app.post("/admin/restart", dependencies=[Auth])
+def admin_restart(background_tasks: BackgroundTasks) -> dict[str, Any]:
+    """Exit the process so the watchdog relaunches (and applies any staged update).
+
+    Returns immediately; the actual exit happens shortly after the response is
+    flushed. Only meaningful when launched under run_watchdog.py.
+    """
+    def _bye() -> None:
+        time.sleep(0.5)
+        import os
+
+        os._exit(0)
+
+    background_tasks.add_task(_bye)
+    return {"ok": True, "restarting": True}
 
 
 @app.get("/diagnostics", dependencies=[Auth])

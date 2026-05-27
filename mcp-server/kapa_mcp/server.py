@@ -32,6 +32,43 @@ async def list_recipes() -> dict[str, Any]:
 
 
 @mcp.tool()
+async def agent_version() -> dict[str, Any]:
+    """Report the agent version, recipe hash, and GitHub update configuration."""
+    return await client().get("/version")
+
+
+@mcp.tool()
+async def push_recipes(recipes: dict[str, Any]) -> dict[str, Any]:
+    """Live-push recipes to the agent without restart (validated + hot-reloaded)."""
+    return await client().put("/config/recipes", {"recipes": recipes})
+
+
+@mcp.tool()
+async def update_recipes_from_github(ref: str | None = None) -> dict[str, Any]:
+    """Pull recipes from the GitHub repo (default ref) and hot-reload them."""
+    params = {"ref": ref} if ref else None
+    return await client().post("/admin/update-recipes", {}, params=params)
+
+
+@mcp.tool()
+async def update_agent_binary() -> dict[str, Any]:
+    """Download the latest agent EXE from GitHub Releases and stage it for swap."""
+    return await client().post("/admin/update-agent", {})
+
+
+@mcp.tool()
+async def rollback_recipes() -> dict[str, Any]:
+    """Restore recipes from the most recent backup snapshot on the agent."""
+    return await client().post("/admin/rollback", {})
+
+
+@mcp.tool()
+async def restart_agent() -> dict[str, Any]:
+    """Ask the agent to exit so the watchdog relaunches (applies staged updates)."""
+    return await client().post("/admin/restart", {})
+
+
+@mcp.tool()
 async def list_windows(backend: str = "uia") -> list[dict[str, Any]]:
     """List top-level Windows desktop windows visible to the agent session."""
     return await client().get("/windows", params={"backend": backend})

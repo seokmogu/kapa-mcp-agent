@@ -1,0 +1,26 @@
+{
+  "name": "example.notepad_echo",
+  "description": "Type a message into Notepad, select all, copy, and read it back. Safe smoke recipe that exercises the full type/select/copy/clipboard path on any Windows box without KAPA.",
+  "params": ["message"],
+  "steps": [
+    {
+      "action": "type_text",
+      "text": "{{message}}",
+      "paste": true,
+      "submit": false,
+      "selector": { "title_re": ".*(메모장|Notepad).*", "backend": "uia" }
+    },
+    { "action": "wait", "seconds": 0.3 },
+    {
+      "action": "hotkey",
+      "keys": "^a",
+      "selector": { "title_re": ".*(메모장|Notepad).*", "backend": "uia" }
+    },
+    {
+      "action": "hotkey",
+      "keys": "^c",
+      "selector": { "title_re": ".*(메모장|Notepad).*", "backend": "uia" }
+    },
+    { "action": "read_clipboard", "save_as": "clipboard" }
+  ]
+}

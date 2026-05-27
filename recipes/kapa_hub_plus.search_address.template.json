@@ -1,0 +1,26 @@
+{
+  "name": "kapa_hub_plus.search_address",
+  "description": "TEMPLATE — fill in after a kapa-probe UIA dump identifies the search box, submit control, and result grid. Rename to kapa_hub_plus.search_address.json (drop .template) to activate. The selector below is a guess; replace title_re/automation_id with values observed in uia-dump-*.json.",
+  "params": ["address"],
+  "steps": [
+    {
+      "action": "type_text",
+      "text": "{{address}}",
+      "paste": true,
+      "submit": true,
+      "selector": { "title_re": ".*(KAPA\\s*HUB|KAPA-HUB).*", "backend": "uia" }
+    },
+    { "action": "wait_until_clipboard_changes", "timeout": 8, "comment": "search may take time; replace with wait_until_window/wait if grid does not auto-copy" },
+    {
+      "action": "hotkey",
+      "keys": "^a",
+      "selector": { "title_re": ".*(KAPA\\s*HUB|KAPA-HUB).*", "backend": "uia" }
+    },
+    {
+      "action": "hotkey",
+      "keys": "^c",
+      "selector": { "title_re": ".*(KAPA\\s*HUB|KAPA-HUB).*", "backend": "uia" }
+    },
+    { "action": "read_clipboard", "save_as": "clipboard" }
+  ]
+}
