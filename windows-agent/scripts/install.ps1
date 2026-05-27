@@ -49,7 +49,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocol]::Tls12
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
 function Get-Headers {
   $h = @{ "User-Agent" = "kapa-installer"; "X-GitHub-Api-Version" = "2022-11-28" }

@@ -107,7 +107,29 @@ main data collection paths are:
 - Local files/cache where legally accessible
 - Network metadata only when needed
 
-## Quick Start
+## Install on a target PC (no Python, no build)
+
+The release ships prebuilt `kapa-agent.exe` + `kapa-watchdog.exe`. On the target
+Windows PC, run this one-liner in PowerShell to download the latest release,
+install to `C:\KapaAgent`, and register an ONLOGON watchdog task:
+
+```powershell
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/seokmogu/kapa-mcp-agent/main/windows-agent/scripts/install.ps1))) -RegisterTask
+```
+
+Then start it and verify:
+
+```powershell
+& C:\KapaAgent\kapa-watchdog.exe   # or: schtasks /Run /TN KapaAgent
+curl http://127.0.0.1:8765/health
+```
+
+The watchdog owns the agent process and applies remote updates on restart. After
+install, recipes and the agent binary update themselves from GitHub — see
+[docs/remote-update.md](docs/remote-update.md). No controller-side server and no
+inbound network are needed; the PC only needs outbound HTTPS to GitHub.
+
+## Quick Start (from source)
 
 Windows Agent:
 

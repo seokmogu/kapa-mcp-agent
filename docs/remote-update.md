@@ -62,6 +62,20 @@ never applied, so a bad push cannot brick the agent.
 A running EXE cannot overwrite itself on Windows, which is the whole reason the
 swap happens in the watchdog at restart rather than in the agent.
 
+## First-time install
+
+The repo is public, so the agent installs from a release with no token:
+
+```powershell
+# download latest release, install to C:\KapaAgent, register ONLOGON watchdog task
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/seokmogu/kapa-mcp-agent/main/windows-agent/scripts/install.ps1))) -RegisterTask
+```
+
+`install.ps1` also accepts `-InstallDir`, `-Port`, `-AgentToken` (require an
+`X-Kapa-Agent-Token` from clients), and `-Token` (only needed if the repo is
+private again). For a private repo the same script works once a read-only
+fine-grained PAT is passed via `-Token` and stored in `config.local.json`.
+
 ## Deployment layout
 
 ```
