@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 
-AGENT_VERSION = "0.2.0"
+AGENT_VERSION = "0.3.0"
 
 
 @dataclass(slots=True)

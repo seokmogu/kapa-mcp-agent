@@ -46,35 +46,38 @@ never applied, so a bad push cannot brick the agent.
 
 ## Agent binary updates
 
-1. Tag a release: `git tag v0.2.0 && git push origin v0.2.0`.
-2. GitHub Actions (`.github/workflows/release.yml`) builds `kapa-agent.exe` and
-   `kapa-watchdog.exe` on a `windows-latest` runner with PyInstaller, computes
-   SHA-256 sidecars, and attaches them (plus a portable zip) to the release.
+1. Tag a release: `git tag v0.3.0 && git push origin v0.3.0`.
+2. GitHub Actions (`.github/workflows/release.yml`) builds `kapa-agent.exe` (and
+   `kapa-watchdog.exe`) on a `windows-latest` runner with PyInstaller, computes
+   SHA-256 sidecars, and attaches them to the release.
 3. On the target, `POST /admin/update-agent` downloads the latest release asset
-   named by `github.asset_name` (default `kapa-agent.exe`), verifies its
-   `.sha256`, writes it next to the running EXE as `kapa-agent.exe.new`, and
-   drops a `.update-pending` marker. MCP tool: `update_agent_binary`.
-4. `POST /admin/restart` exits the process. The **watchdog** (`run_watchdog.py` /
-   `kapa-watchdog.exe`) owns the agent lifecycle: on exit it swaps
-   `kapa-agent.exe.new` → `kapa-agent.exe` (archiving the old one as
-   `kapa-agent.exe.old`) and relaunches. MCP tool: `restart_agent`.
+   (`github.asset_name`, default `kapa-agent.exe`) and verifies its `.sha256`.
+   MCP tool: `update_agent_binary`.
 
-A running EXE cannot overwrite itself on Windows, which is the whole reason the
-swap happens in the watchdog at restart rather than in the agent.
+How the swap happens depends on how the agent is running:
 
-## First-time install
+- **Single EXE (default double-click):** the agent spawns a small detached
+  PowerShell swapper, then exits. The swapper waits for the process to end,
+  replaces `kapa-agent.exe` (archiving the old one as `kapa-agent.exe.old`), and
+  relaunches it. No watchdog needed. A running EXE can't overwrite itself, so the
+  swap is done by the short-lived external swapper.
+- **Watchdog / source mode (or `?stage_only=true`):** the new binary is staged as
+  `kapa-agent.exe.new` with a `.update-pending` marker; `POST /admin/restart`
+  exits and `run_watchdog.py` / `kapa-watchdog.exe` performs the swap on relaunch.
 
-The repo is public, so the agent installs from a release with no token:
+## First-time install (one EXE)
 
-```powershell
-# download latest release, install to C:\KapaAgent, register ONLOGON watchdog task
-& ([scriptblock]::Create((irm https://raw.githubusercontent.com/seokmogu/kapa-mcp-agent/main/windows-agent/scripts/install.ps1))) -RegisterTask
-```
+The repo is public, so installation is just downloading one file:
 
-`install.ps1` also accepts `-InstallDir`, `-Port`, `-AgentToken` (require an
-`X-Kapa-Agent-Token` from clients), and `-Token` (only needed if the repo is
-private again). For a private repo the same script works once a read-only
-fine-grained PAT is passed via `-Token` and stored in `config.local.json`.
+> https://github.com/seokmogu/kapa-mcp-agent/releases/latest/download/kapa-agent.exe
+
+Double-click it. No config file is required — the agent boots on
+`127.0.0.1:8765` with baked-in defaults (github repo, no token needed for a
+public repo) and zero recipes, then pulls recipes on demand.
+
+For managed deployments the repo also provides `scripts/install.ps1` (installs
+to a dir, optional `-RegisterTask` ONLOGON, optional `-Token` for a private
+repo) and `kapa-watchdog.exe`, but neither is required for the single-EXE flow.
 
 ## Deployment layout
 

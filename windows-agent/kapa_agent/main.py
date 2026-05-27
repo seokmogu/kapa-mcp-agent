@@ -192,15 +192,25 @@ def admin_rollback() -> dict[str, Any]:
 
 
 @app.post("/admin/update-agent", dependencies=[Auth])
-def admin_update_agent() -> dict[str, Any]:
-    """Download the latest agent EXE from GitHub Releases and stage it.
+def admin_update_agent(stage_only: bool = False) -> dict[str, Any]:
+    """Download the latest agent EXE from GitHub Releases and apply it.
 
-    The running EXE cannot overwrite itself on Windows, so the new binary is
-    written next to it as ``<asset>.new`` and a ``.update-pending`` marker is
-    dropped. The watchdog performs the swap on the next restart.
+    When running as a frozen single EXE (the normal double-click case), the
+    agent updates itself with no watchdog: it downloads + verifies the new
+    binary, spawns a small detached swapper that waits for this process to exit,
+    replaces the EXE, and relaunches it. The agent then exits.
+
+    When running from source (or with ``stage_only=true``), it falls back to
+    staging ``<asset>.new`` + a ``.update-pending`` marker for run_watchdog.py.
     """
+    import sys
+
+    frozen = bool(getattr(sys, "frozen", False))
+    exe_path = Path(sys.executable) if frozen else None
+    base = exe_path.parent if frozen else config.artifact_dir.parent
+    staged = base / (config.github.asset_name + ".new")
+
     updater = GitHubUpdater(config.github)
-    staged = config.artifact_dir.parent / (config.github.asset_name + ".new")
     try:
         meta = updater.download_asset(staged, config.github.asset_name)
     except UpdateError as exc:
@@ -210,17 +220,65 @@ def admin_update_agent() -> dict[str, Any]:
             staged.unlink()
         except OSError:
             pass
-        raise HTTPException(
-            status_code=409,
-            detail={"reason": "checksum_mismatch", "meta": meta},
-        )
-    marker = config.artifact_dir.parent / ".update-pending"
-    marker.write_text(json.dumps(meta, ensure_ascii=False), encoding="utf-8")
-    return {
-        "ok": True,
-        "staged": meta,
-        "next_step": "POST /admin/restart (watchdog will swap the binary)",
-    }
+        raise HTTPException(status_code=409, detail={"reason": "checksum_mismatch", "meta": meta})
+
+    # Source mode or explicit stage_only: leave it for the watchdog.
+    if stage_only or not frozen:
+        marker = base / ".update-pending"
+        marker.write_text(json.dumps(meta, ensure_ascii=False), encoding="utf-8")
+        return {
+            "ok": True,
+            "applied": False,
+            "staged": meta,
+            "next_step": "POST /admin/restart (watchdog swaps the binary)",
+        }
+
+    # Single-EXE self-apply: spawn a detached swapper, then exit.
+    _spawn_self_swapper(exe_path, staged)
+    _schedule_exit(delay=0.8)
+    return {"ok": True, "applied": True, "relaunching": True, "staged": meta}
+
+
+def _spawn_self_swapper(exe_path: Path, staged: Path) -> None:
+    """Write and launch a detached PowerShell that swaps the EXE after we exit."""
+    import os
+    import subprocess
+    import tempfile
+
+    script = f"""$ErrorActionPreference = 'SilentlyContinue'
+$exe = '{exe_path}'
+$new = '{staged}'
+try {{ Wait-Process -Id {os.getpid()} -Timeout 30 }} catch {{}}
+Start-Sleep -Milliseconds 600
+for ($i = 0; $i -lt 30; $i++) {{
+  try {{
+    if (Test-Path $exe) {{ Move-Item -Force $exe ($exe + '.old') }}
+    Move-Item -Force $new $exe
+    break
+  }} catch {{ Start-Sleep -Milliseconds 500 }}
+}}
+Start-Process -FilePath $exe -ArgumentList '--host','{config.bind_host}','--port','{config.port}' -WorkingDirectory '{exe_path.parent}'
+"""
+    swapper = Path(tempfile.gettempdir()) / "kapa-agent-swap.ps1"
+    swapper.write_text(script, encoding="utf-8")
+    DETACHED_PROCESS = 0x00000008
+    CREATE_NEW_PROCESS_GROUP = 0x00000200
+    subprocess.Popen(
+        ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(swapper)],
+        creationflags=DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP,
+        close_fds=True,
+    )
+
+
+def _schedule_exit(delay: float = 0.5) -> None:
+    import os
+    import threading
+
+    def _bye() -> None:
+        time.sleep(delay)
+        os._exit(0)
+
+    threading.Thread(target=_bye, daemon=True).start()
 
 
 @app.post("/admin/restart", dependencies=[Auth])

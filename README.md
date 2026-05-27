@@ -107,27 +107,32 @@ main data collection paths are:
 - Local files/cache where legally accessible
 - Network metadata only when needed
 
-## Install on a target PC (no Python, no build)
+## Install on a target PC (one EXE, double-click)
 
-The release ships prebuilt `kapa-agent.exe` + `kapa-watchdog.exe`. On the target
-Windows PC, run this one-liner in PowerShell to download the latest release,
-install to `C:\KapaAgent`, and register an ONLOGON watchdog task:
+Download a single file and double-click it. Nothing else — no Python, no zip, no
+install script.
 
-```powershell
-& ([scriptblock]::Create((irm https://raw.githubusercontent.com/seokmogu/kapa-mcp-agent/main/windows-agent/scripts/install.ps1))) -RegisterTask
-```
+**Download:** https://github.com/seokmogu/kapa-mcp-agent/releases/latest/download/kapa-agent.exe
 
-Then start it and verify:
+(that link always points to the latest release). Double-click `kapa-agent.exe`.
+It binds `127.0.0.1:8765` and a console window stays open while it runs. Verify:
 
 ```powershell
-& C:\KapaAgent\kapa-watchdog.exe   # or: schtasks /Run /TN KapaAgent
 curl http://127.0.0.1:8765/health
 ```
 
-The watchdog owns the agent process and applies remote updates on restart. After
-install, recipes and the agent binary update themselves from GitHub — see
-[docs/remote-update.md](docs/remote-update.md). No controller-side server and no
-inbound network are needed; the PC only needs outbound HTTPS to GitHub.
+After it starts, it updates itself from GitHub with no further downloads:
+
+- Recipes: `POST /admin/update-recipes` pulls `recipes/*.json` from the repo.
+- Binary: `POST /admin/update-agent` downloads the latest release EXE, verifies
+  its SHA-256, swaps itself in place, and relaunches — no watchdog needed.
+
+No controller-side server and no inbound network are required; the PC only needs
+outbound HTTPS to GitHub. Details: [docs/remote-update.md](docs/remote-update.md).
+
+The repo also ships `kapa-watchdog.exe` and `scripts/install.ps1` for managed
+deployments (ONLOGON task, separate watchdog), but they are optional — the
+single EXE self-updates on its own.
 
 ## Quick Start (from source)
 
