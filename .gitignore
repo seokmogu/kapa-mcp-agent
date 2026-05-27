@@ -30,3 +30,7 @@ windows-agent/kapa-capability-probe-*/
 windows-agent/kapa-capability-probe-*.zip
 windows-agent/kapa-probe-last-run.txt
 windows-agent/*.spec
+recipes/.backup/
+*.new
+*.old
+.update-pending
